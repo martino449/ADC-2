@@ -1,1 +1,2 @@
+# Treat .radc files as RadcScript
 *.radc linguist-language=RadcScript
