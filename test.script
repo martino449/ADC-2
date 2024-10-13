@@ -1,0 +1,3 @@
+$x = 75
+alias greet echo "Hello, World!"
+greet  
