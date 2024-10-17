@@ -8,11 +8,42 @@ import math
 import shutil
 import sys
 debug_mode: bool = False
+ignore_errors: bool = False
 variables = {}
 aliases = {}
 def debug(message: str) -> None:
     if debug_mode:
         print(f"DEBUG: {message}")
+
+def error(error: str) -> None:
+    if not ignore_errors:
+        print(f"ERROR: {error}")
+
+
+def help_command() -> None:
+    print("""
+    Available commands:
+    - exit: Exits the interpreter.
+    - set var_name value: Sets a variable to a given value.
+    - get var_name: Retrieves the value of a variable.
+    - delete var_name: Deletes a variable.
+    - echo expression: Evaluates and prints an expression.
+    - debug_vars: Prints the current variables.
+    - debug_activate: Activates debug mode.
+    - alias name command: Creates a command alias.
+    - loop n command: Repeats a command n times.
+    - lambda func_name args -> expression: Defines a lambda function.
+    - pause: Pauses the interpreter until Enter is pressed.
+    - log message: Logs a message to a file.
+    - source: Prints the content of all files in the current directory.
+    - directory_exists directory: Checks if a directory exists.
+    - directory_exists_create directory: Creates a directory if it doesn't exist.
+    - read filename: Reads and prints the content of a file.
+    - include filename: Executes commands from a file.
+    - trueloop command: Repeats a command infinitely.
+    """)
+
+
 initial_art = """
       ___           ___           ___           ___           ___           ___           ___     
      /\  \         /\  \         /\  \         /\  \         /\__\         /\__\         /\  \    
@@ -26,6 +57,11 @@ initial_art = """
     \:\__\        \:\__\        \:\__\        \::/  /        |:/  /        |:/  /       \::/  /   
      \/__/         \/__/         \/__/         \/__/         |/__/         |/__/         \/__/    
 
+
+
+    RADC
+    Copyright 2024, Mario Pisano
+    under the MIT license
 
 """
 
@@ -64,12 +100,7 @@ def interpret(file: str) -> None:
         for line in f.readlines():
             run(line)
 
-def M_info() -> None:
-    print("""
-    RADC
-    Copyright 2024, Mario Pisano
-    under the MIT license
-    """)
+
     
 
 def log(information: str) -> None:
@@ -104,62 +135,15 @@ def source() -> None:
             print(f.read())
 
 
-def system_info() -> None:
-    # Informazioni sul sistema operativo
-    print(f"Sistema Operativo: {os.name}")
-    print(f"Directory corrente: {os.getcwd()}")
-    print(f"Nome utente: {os.getlogin()}")
-    print(f"Spazio libero su disco: {shutil.disk_usage(os.getcwd()).free / (1024 * 1024 * 1024):.2f} GB")
-
-
-def battery_info() -> None:
-    # Informazioni sullo stato della batteria (solo per Windows)
-    if os.name == 'nt':
-        SYSTEM_POWER_STATUS = ctypes.Structure
-        class SYSTEM_POWER_STATUS(ctypes.Structure):
-            _fields_ = [("ACLineStatus", ctypes.c_byte),
-                        ("BatteryFlag", ctypes.c_byte),
-                        ("BatteryLifePercent", ctypes.c_byte),
-                        ("SystemStatusFlag", ctypes.c_byte),
-                        ("BatteryLifeTime", ctypes.c_ulong),
-                        ("BatteryFullLifeTime", ctypes.c_ulong)]
-
-        status = SYSTEM_POWER_STATUS()
-        if ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(status)):
-            print(f"Percentuale batteria: {status.BatteryLifePercent}%")
-        else:
-            print("Impossibile ottenere informazioni sulla batteria.")
-    else:
-        print("Questa funzione è disponibile solo su Windows.")
-
-
-def ram_info() -> None:
-    # Informazioni sulla memoria RAM disponibile
-    if os.name == 'nt':
-        class MEMORYSTATUSEX(ctypes.Structure):
-            _fields_ = [("dwLength", ctypes.c_ulong),
-                        ("dwMemoryLoad", ctypes.c_ulong),
-                        ("ullTotalPhys", ctypes.c_ulonglong),
-                        ("ullAvailPhys", ctypes.c_ulonglong),
-                        ("ullTotalPageFile", ctypes.c_ulonglong),
-                        ("ullAvailPageFile", ctypes.c_ulonglong),
-                        ("ullTotalVirtual", ctypes.c_ulonglong),
-                        ("ullAvailVirtual", ctypes.c_ulonglong),
-                        ("sullAvailExtendedVirtual", ctypes.c_ulonglong)]
-        memory_status = MEMORYSTATUSEX()
-        memory_status.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
-        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(memory_status))
-        total_memory = memory_status.ullTotalPhys / (1024 ** 3)
-        available_memory = memory_status.ullAvailPhys / (1024 ** 3)
-        print(f"Memoria totale: {total_memory:.2f} GB")
-        print(f"Memoria disponibile: {available_memory:.2f} GB")
-    else:
-        print("Questa funzione è disponibile solo su Windows.")
-        
 def run(line):
+    global debug_mode
+    global ignore_errors
     try:
         parts = line.split(" ")
         opcode = parts[0]
+
+
+
 
         # Check if the command is an alias and substitute
         if opcode in aliases:
@@ -172,7 +156,7 @@ def run(line):
                 print("Exiting...")
                 exit()
             case "help":
-                print("Available commands: exit, set, get, echo, debug_vars, delete, def, loop, alias")
+                help_command()
             case _ if opcode.startswith("$"):
                 # Variable assignment
                 var_name = opcode.replace("$", "")
@@ -182,12 +166,12 @@ def run(line):
                     try:
                         # Evaluate and store the value
                         variables[var_name] = eval(var_value, {"__builtins__": None, "math": math, "lambda": lambda: None}, variables)
-                        print(f"Assigned ${var_name} = {variables[var_name]}")
+
                         debug(f"Variable {var_name} assigned value: {variables[var_name]}")
                     except Exception as e:
-                        print(f"ERROR: Invalid expression for variable ${var_name}: {e}")
+                        error(f"Invalid expression for variable ${var_name}: {e}")
                 else:
-                    print(f"ERROR: No value provided for ${var_name}")
+                    error(f"No value provided for ${var_name}")
             case "echo":
                 tosay = " ".join(parts[1:])
                 print(f"> {eval(tosay, {'__builtins__': None, 'math': math}, variables)}")
@@ -197,62 +181,65 @@ def run(line):
                 debug(f"Current variables: {variables}")
             case "set":
                 if len(parts) < 3:
-                    print("ERROR: Usage: set var_name value")
+                    error("Usage: set var_name value")
                     return
                 var_name = parts[1]
                 var_value = " ".join(parts[2:]).strip()
                 if var_value:
                     variables[var_name] = eval(var_value, {"__builtins__": None, "math": math}, variables)
-                    print(f"Set ${var_name} = {variables[var_name]}")
                     debug(f"Variable {var_name} set to {variables[var_name]}")
                 else:
-                    print(f"ERROR: No value provided for ${var_name}")
+                    error(f"No value provided for ${var_name}")
             case "get":
                 if len(parts) < 2:
-                    print("ERROR: Usage: get var_name")
+                    error("Usage: get var_name")
                     return
                 var_name = parts[1]
                 if var_name in variables:
-                    print(f"${var_name} = {variables[var_name]}")
+                    print(variables[var_name])
                     debug(f"Retrieved variable {var_name} with value {variables[var_name]}")
                 else:
-                    print(f"ERROR: Variable ${var_name} is not defined.")
+                    error(f"Variable ${var_name} is not defined.")
             case "delete":
                 if len(parts) < 2:
-                    print("ERROR: Usage: delete var_name")
+                    error("Usage: delete var_name")
                     return
                 var_name = parts[1]
                 if var_name in variables:
                     del variables[var_name]
-                    print(f"Deleted variable ${var_name}.")
+
                     debug(f"Variable {var_name} deleted.")
                 else:
-                    print(f"ERROR: Variable ${var_name} is not defined.")
-            case _ if opcode == "def":
+                    error(f"Variable ${var_name} is not defined.")
+            case "lambda":
                 # Handle lambda function definitions
                 if len(parts) < 3:
-                    print("ERROR: Usage: def func_name args -> expression")
+                    error("Usage: def func_name args -> expression")
                     return
 
                 func_name = parts[1]
-                args, body = line.replace("def", "").replace(func_name, "").split("->")
+                args, body = line.replace("lambda", "").replace(func_name, "").split("->")
 
                 if func_name in variables:
-                    print(f"ERROR: Function ${func_name} is already defined.")
+                    error(f"Function ${func_name} is already defined.")
                     return
 
                 # Define the lambda function and store it
                 try:
                     lambda_func = eval(f"lambda {args}: {body}", {"__builtins__": None, "math": math}, variables)
                     variables[func_name] = lambda_func
-                    print(f"Defined lambda ${func_name} with args ({args})")
+
                     debug(f"Defined lambda function {func_name} with arguments {args} and body {body}")
                 except Exception as e:
-                    print(f"ERROR: Invalid lambda definition for ${func_name}: {e}")
+                    error(f"Invalid lambda definition for ${func_name}: {e}")
                 
+
+            case "ignore_errors":
+                ignore_errors = not ignore_errors
+                debug(f"Ignore errors: {ignore_errors}")
             case "loop":
                 if len(parts) < 3:
-                    print("ERROR: Usage: loop n command")
+                    error("Usage: loop n command")
                     return
                 try:
                     n = int(parts[1])
@@ -260,15 +247,15 @@ def run(line):
                     for _ in range(n):
                         run(command)
                 except Exception as e:
-                    print(f"ERROR: Invalid loop: {e}")
+                    error(f"Invalid loop: {e}")
             case "alias":
                 if len(parts) < 3:
-                    print("ERROR: Usage: alias name command")
+                    error("Usage: alias name command")
                     return
                 alias_name = parts[1]
                 alias_command = " ".join(parts[2:])
                 aliases[alias_name] = alias_command
-                print(f"Alias '{alias_name}' set for command: {alias_command}")
+
                 debug(f"Alias '{alias_name}' mapped to command: {alias_command}")
             case "pause":
                 input("Press Enter to continue...")
@@ -276,7 +263,7 @@ def run(line):
             
             case "log":
                 if len(parts) < 2:
-                    print("ERROR: Usage: log message")
+                    error("Usage: log message")
                     return
                 message = " ".join(parts[1:])
                 log(message)
@@ -286,14 +273,14 @@ def run(line):
 
             case "directory_exists":
                 if len(parts) < 2:
-                    print("ERROR: Usage: directory_exists directory")
+                    error("Usage: directory_exists directory")
                     return
                 directory = "".join(parts[1:])
                 print(directory_exists(directory))
 
             case "directory_exists_create":
                 if len(parts) < 2:
-                    print("ERROR: Usage: directory_exists_create directory")
+                    error("Usage: directory_exists_create directory")
                     return
                 directory = "".join(parts[1:])
                 directory_exists_create(directory)
@@ -301,35 +288,50 @@ def run(line):
             
             case "read":
                 if len(parts) < 2:
-                    print("ERROR: Usage: read filename")
+                    error("Usage: read filename")
                     return
                 filename = "".join(parts[1:])
                 print(read(filename))
 
-            case "system_info":
-                system_info()
-            case "ram_info":
-                ram_info()
-            case "battery_info":
-                battery_info()
-            case _ if opcode == "include" or "interpret":
+
+            case "include":
                 if len(parts) < 2:
-                    print("ERROR: Usage: include/interpret filename")
+                    error("Usage: include filename")
                     return
                 filename = "".join(parts[1:])
                 interpret(filename)
+
+            
+            case "trueloop":
+                while True:
+                    run("".join(parts[1:]))
+
+
+            case "debug_activate":
+                debug_mode = True
+                debug("Debug mode activated")
+                
+                
+            case _ if opcode.startswith("#"):
+                debug(f"Ignoring Comment: {opcode[1:]}")
                 
             case _:
-                debug(f"Unknown opcode: {opcode}")
+                if opcode == "":
+                    pass
+                elif opcode in variables:
+                    print(variables[opcode])
+                    debug(f"Retrieved variable {opcode} with value {variables[opcode]}")
+                else:
+                    debug(f"Unknown opcode: {opcode}")
 
     except Exception as e:
-        print(f"ERROR: {e}")
+        error(f"{e}")
 
 
 
-M_info()
+
+
 if __name__ == "__main__":
     while True:
         command_line = input("> ").lower()
-
         run(command_line)
