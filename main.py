@@ -59,9 +59,9 @@ initial_art = """
 
 
 
-    RADC
-    Copyright 2024, Mario Pisano
-    under the MIT license
+RADC
+Copyright 2024, Mario Pisano
+under the MIT license
 
 """
 
@@ -107,7 +107,8 @@ def log(information: str) -> None:
     with open("log.txt", "a") as f:
         f.write(f"{datetime.now()} - {information}\n")
 
-
+def clear() -> None:
+    os.system('cls' if os.name == 'nt' else 'clear')
 def read(filename: str, folder: str = "apps/data") -> str:
     file_path = os.path.join(folder, filename)
     if not os.path.exists(file_path):
@@ -233,7 +234,8 @@ def run(line):
                 except Exception as e:
                     error(f"Invalid lambda definition for ${func_name}: {e}")
                 
-
+            case _ if opcode == "clear" or opcode == "cls":
+                clear()
             case "ignore_errors":
                 ignore_errors = not ignore_errors
                 debug(f"Ignore errors: {ignore_errors}")
@@ -332,6 +334,7 @@ def run(line):
 
 
 if __name__ == "__main__":
+    
     while True:
         command_line = input("> ").lower()
         run(command_line)
